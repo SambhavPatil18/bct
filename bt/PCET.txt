@@ -1,0 +1,453 @@
+ASS1
+
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+// Parent Contract
+contract ParentContract {
+    address public owner;
+    // Constructor
+    constructor() {
+        owner = msg.sender;  // Set contract creator as owner
+    }
+    // Public function
+    function getOwner() public view returns (address) {
+        return owner;
+    }
+    // Visibility: Internal function
+    function _getBalance() internal view returns (uint) {
+        return owner.balance;  // Return owner's balance
+    }
+    // Error handling with require
+    function transferOwnership(address newOwner) public {
+        require(newOwner != address(0), "New owner address invalid");
+        owner = newOwner;
+    }
+}
+// Child Contract inheriting ParentContract
+contract ChildContract is ParentContract {
+    // Payable function
+    function deposit() public payable {
+        // Payable function to receive Ether
+    }
+    // Public function using internal function
+    function showOwnerBalance() public view returns (uint) {
+        return _getBalance();  // Access internal function from parent contract
+    }
+    // Struct definition
+    struct Person {
+        string name;
+        uint age;
+    }
+    // Mapping
+    mapping(address => Person) public people;
+    // Function to add people to mapping
+    function addPerson(string memory _name, uint _age) public {
+        people[msg.sender] = Person(_name, _age);
+    }
+    // Enum definition
+    enum Status { Active, Inactive }
+    // Fixed array
+    uint[5] public fixedArray = [1, 2, 3, 4, 5];
+    // Dynamic array
+    uint[] public dynamicArray;
+    // Special arrays (bytes and string)
+    bytes public byteArray;
+    string public textString = "Hello, Solidity";
+    // Function to add to dynamic array
+    function addToArray(uint _value) public {
+        dynamicArray.push(_value);
+    }
+}
+
+
+
+
+ASS2
+
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+contract MerkleTree {
+    bytes32[] public leaves;  // Array of leaf hashes
+    bytes32 public merkleRoot; // Store the Merkle root
+    // Add new leaf (hashed) to the leaves array
+    function addLeaf(bytes32 _leaf) public {
+        leaves.push(_leaf);
+    }
+    // Function to construct the Merkle Tree and compute Merkle Root
+    function generateMerkleRoot() public {
+        require(leaves.length > 0, "No leaves available");
+        uint n = leaves.length;
+        bytes32[] memory currentLevel = leaves;
+        // Continue hashing pairs of nodes until one hash (the root) remains
+        while (n > 1) {
+            uint nextLevelLength = n / 2;
+            if (n % 2 == 1) {
+                nextLevelLength++;
+            }
+            bytes32[] memory nextLevel = new bytes32[](nextLevelLength);
+            for (uint i = 0; i < n / 2; i++) {
+                nextLevel[i] = keccak256(abi.encodePacked(currentLevel[2 * i], currentLevel[2 * i + 1]));
+            }
+            // If there is an odd number of elements, promote the last one
+            if (n % 2 == 1) {
+                nextLevel[nextLevelLength - 1] = currentLevel[n - 1];
+            }
+
+            currentLevel = nextLevel;
+            n = nextLevelLength;
+        }
+        // The final root hash
+        merkleRoot = currentLevel[0];
+    }
+    // Verify whether a leaf belongs to the Merkle Tree using Merkle proof
+    function verify(bytes32 leaf, bytes32[] memory proof, bytes32 root) public pure returns (bool) {
+        bytes32 computedHash = leaf;
+        // Rebuild the hash from the proof
+        for (uint i = 0; i < proof.length; i++) {
+            bytes32 proofElement = proof[i];
+            if (computedHash <= proofElement) {
+                // Hash current computed hash with the proof element
+                computedHash = keccak256(abi.encodePacked(computedHash, proofElement));
+            } else {
+                // Hash proof element with current computed hash
+                computedHash = keccak256(abi.encodePacked(proofElement, computedHash));
+            }
+        }
+        // Check if the rebuilt hash matches the root
+        return computedHash == root;
+    }
+}
+
+
+
+ASS3
+
+
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+contract DecentralizedBank {
+    // Mapping of user addresses to their Ether balances
+    mapping(address => uint) private balances;
+    // Event to log successful deposits
+    event Deposit(address indexed user, uint amount);
+    // Event to log successful withdrawals
+    event Withdrawal(address indexed user, uint amount);
+    // Deposit function (payable): Allows users to deposit Ether into the bank
+    function deposit() public payable {
+        require(msg.value > 0, "Deposit amount must be greater than zero");
+        balances[msg.sender] += msg.value;
+        emit Deposit(msg.sender, msg.value);  // Emit deposit event
+    }
+    // Withdraw function: Allows users to withdraw Ether from their balance
+    function withdraw(uint _amount) public {
+        require(balances[msg.sender] >= _amount, "Insufficient balance");
+        // Deduct the amount from the user's balance
+        balances[msg.sender] -= _amount;
+        // Transfer Ether to the user
+        payable(msg.sender).transfer(_amount);
+        emit Withdrawal(msg.sender, _amount);  // Emit withdrawal event
+    }
+    // Function to check the user's balance
+    function getBalance() public view returns (uint) {
+        return balances[msg.sender];
+    }
+}
+
+
+ASS4
+
+
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+
+contract DecentralizedLottery {
+    address public manager;
+    address[] public players;
+    uint public entryFee;
+    uint public maxPlayers;
+    uint public lotteryEndTime;
+    uint public winnerIndex;
+    address public winner;
+
+
+    event PlayerEntered(address indexed player);
+    event WinnerSelected(address indexed winner, uint amount);
+
+
+    constructor(uint _entryFee, uint _maxPlayers, uint _durationMinutes) {
+        manager = msg.sender;
+        entryFee = _entryFee;
+        maxPlayers = _maxPlayers;
+        lotteryEndTime = block.timestamp + (_durationMinutes * 1 minutes);
+    }
+
+
+    modifier onlyManager() {
+        require(msg.sender == manager, "Only manager can call this");
+        _;
+    }
+
+
+    modifier lotteryActive() {
+        require(block.timestamp < lotteryEndTime, "Lottery has ended");
+        _;
+    }
+
+
+    function enterLottery() public payable lotteryActive {
+        //require(msg.value == entryFee, "Incorrect entry fee");
+        require(players.length <= maxPlayers, "Player limit reached");
+
+
+        players.push(msg.sender);
+        emit PlayerEntered(msg.sender);
+
+
+        // Automatically pick winner if max players reached
+        if (players.length == maxPlayers) {
+            pickWinner();
+        }
+    }
+
+
+    function pickWinner() public onlyManager {
+        require(players.length > 0, "No players in the lottery");
+        require(block.timestamp >= lotteryEndTime || players.length == maxPlayers, "Lottery still active");
+
+
+        // Simple pseudo-random selection (not secure for high-value lotteries)
+        winnerIndex = uint(keccak256(abi.encodePacked(block.timestamp, block.difficulty, players))) % players.length;
+        winner = players[winnerIndex];
+
+
+        uint prizeAmount = address(this).balance;
+        (bool success, ) = winner.call{value: prizeAmount}("");
+        require(success, "Transfer failed");
+
+
+        emit WinnerSelected(winner, prizeAmount);
+        // Reset the lottery
+        while (players.length > 0) {
+            players.pop();
+        }
+
+
+        lotteryEndTime = block.timestamp + 1 days;
+    }
+
+
+    function getPlayers() public view returns (address[] memory) {
+        return players;
+    }
+
+
+    function withdraw() public onlyManager {
+        // Allow manager to withdraw funds if needed (fails if there are players)
+        require(players.length == 0, "Players exist, cannot withdraw");
+        (bool success, ) = manager.call{value: address(this).balance}("");
+        require(success, "Withdraw failed");
+    }
+
+
+
+
+    receive() external payable {
+        enterLottery();
+    }
+}
+
+
+ASS5
+
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+contract Crowdfunding {
+    // Variables
+    address public manager;  // Project creator
+    uint public goal;  // Funding goal (in wei)
+    uint public deadline;  // Time limit for funding (block timestamp)
+    uint public totalFunds;  // Total funds raised
+    bool public goalReached;  // Flag to indicate if the goal is reached
+    bool public fundsWithdrawn;  // Flag to prevent multiple withdrawals
+
+    mapping(address => uint) public contributions;  // Track contributions by each backer
+
+    // Events
+    event ContributionReceived(address contributor, uint amount);
+    event GoalReached(uint totalAmount);
+    event FundsWithdrawn(address recipient, uint amount);
+    event RefundIssued(address contributor, uint amount);
+
+    // Modifier to restrict access to the manager
+    modifier onlyManager() {
+        require(msg.sender == manager, "Only the project manager can call this function");
+        _;
+    }
+
+    // Modifier to ensure the campaign is still active
+    modifier campaignActive() {
+        require(block.timestamp < deadline, "The crowdfunding campaign has ended");
+        _;
+    }
+
+    // Constructor to initialize the crowdfunding campaign
+    constructor(uint _goal, uint _duration) {
+        manager = msg.sender;
+        goal = _goal;
+        deadline = block.timestamp + _duration;
+    }
+
+    // Function to contribute funds to the campaign (payable)
+    function contribute() public payable campaignActive {
+        require(msg.value > 0, "Contribution must be greater than zero");
+
+        // Track contributions
+        contributions[msg.sender] += msg.value;
+        totalFunds += msg.value;
+
+        // Emit event for contribution
+        emit ContributionReceived(msg.sender, msg.value);
+
+        // Check if the funding goal is reached
+        if (totalFunds >= goal) {
+            goalReached = true;
+            emit GoalReached(totalFunds);
+        }
+    }
+
+    // Function to allow the project manager to withdraw funds if the goal is reached
+    function withdrawFunds() public onlyManager {
+        require(goalReached, "Funding goal not yet reached");
+        require(!fundsWithdrawn, "Funds have already been withdrawn");
+
+        // Transfer the contract balance to the manager
+        payable(manager).transfer(address(this).balance);
+        fundsWithdrawn = true;
+
+        // Emit event for withdrawal
+        emit FundsWithdrawn(manager, address(this).balance);
+    }
+
+    // Function to allow contributors to get a refund if the goal is not met by the deadline
+    function requestRefund() public {
+        require(block.timestamp >= deadline, "Crowdfunding campaign is still active");
+        require(!goalReached, "Goal has been reached, no refunds available");
+        require(contributions[msg.sender] > 0, "You have no contributions");
+
+        // Refund the contributor
+        uint refundAmount = contributions[msg.sender];
+        contributions[msg.sender] = 0;
+        payable(msg.sender).transfer(refundAmount);
+
+        // Emit event for refund
+        emit RefundIssued(msg.sender, refundAmount);
+    }
+
+    // Function to get the contract's current balance
+    function getBalance() public view returns (uint) {
+        return address(this).balance;
+    }
+
+    // Function to check the time remaining in the campaign
+    function timeLeft() public view returns (uint) {
+        if (block.timestamp >= deadline) {
+            return 0;
+        } else {
+            return deadline - block.timestamp;
+        }
+    }
+}
+
+
+ASS6
+
+
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+contract EventOrganizer {
+    address public organizer;
+    uint public ticketPrice;
+    uint public totalTickets;
+    uint public ticketsSold;
+    bool public eventCancelled;
+
+    struct EventDetails {
+        string eventName;
+        string eventDate;
+    }
+
+    EventDetails public eventDetails;
+    mapping(address => uint) public ticketHolders;
+
+    // Events
+    event TicketsPurchased(address buyer, uint quantity);
+    event EventCancelled();
+    event RefundIssued(address participant, uint amount);
+
+    // Modifier to restrict certain functions to the organizer
+    modifier onlyOrganizer() {
+        require(msg.sender == organizer, "Only the organizer can perform this action");
+        _;
+    }
+
+    // Modifier to check if the event is still active
+    modifier eventActive() {
+        require(!eventCancelled, "Event has been cancelled");
+        _;
+    }
+
+    // Constructor to initialize the event
+    constructor(string memory _eventName, string memory _eventDate, uint _ticketPrice, uint _totalTickets) {
+        organizer = msg.sender;
+        eventDetails = EventDetails(_eventName, _eventDate);
+        ticketPrice = _ticketPrice;
+        totalTickets = _totalTickets;
+        eventCancelled = false;
+    }
+
+    // Function to purchase tickets
+    function purchaseTickets(uint _quantity) public payable eventActive {
+        require(_quantity > 0, "You must purchase at least one ticket");
+        require(msg.value == _quantity * ticketPrice, "Incorrect Ether amount sent");
+        require(ticketsSold + _quantity <= totalTickets, "Not enough tickets available");
+
+        ticketHolders[msg.sender] += _quantity;
+        ticketsSold += _quantity;
+
+        emit TicketsPurchased(msg.sender, _quantity);
+    }
+
+    // Function to cancel the event and allow refunds
+    function cancelEvent() public onlyOrganizer {
+        eventCancelled = true;
+        emit EventCancelled();
+    }
+
+    // Function to claim refund if the event is cancelled
+    function requestRefund() public {
+        require(eventCancelled, "Event is not cancelled");
+        require(ticketHolders[msg.sender] > 0, "No tickets purchased");
+
+        uint refundAmount = ticketHolders[msg.sender] * ticketPrice;
+        ticketHolders[msg.sender] = 0;
+
+        payable(msg.sender).transfer(refundAmount);
+        emit RefundIssued(msg.sender, refundAmount);
+    }
+
+    // Function to withdraw funds by the organizer (if event is not cancelled)
+    function withdrawFunds() public onlyOrganizer {
+        require(!eventCancelled, "Cannot withdraw funds, event is cancelled");
+        require(address(this).balance > 0, "No funds to withdraw");
+
+        payable(organizer).transfer(address(this).balance);
+    }
+
+    // Get the contract's balance (total funds from ticket sales)
+    function getBalance() public view returns (uint) {
+        return address(this).balance;
+    }
+}

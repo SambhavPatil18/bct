@@ -1,0 +1,42 @@
+// SPDX-License-Identifier: GPL-3.0
+
+pragma solidity >=0.6.0 <0.9.0;
+
+contract mylottery{
+    address public owner;
+    address[] participants;
+    constructor() {
+        owner = msg.sender;
+    }
+
+    function enterLottery() public payable {
+        require(msg.value == 1 ether , "To enter one Enther is Reuqired");
+        participants.push(msg.sender);
+    }
+
+    function getContractBalance() public view returns(uint) {
+        return address(this).balance;
+    }
+    // Add an event to log the winner
+event WinnerDeclared(address winner, uint amount);
+
+function declareResult() public {
+    require(msg.sender == owner, "Only Owner can declare result");
+    require(participants.length > 0, "Nobody Participated");
+
+    uint winnerIndex = random() % participants.length;
+    address payable winner = payable(participants[winnerIndex]);
+    uint amount = getContractBalance();
+
+    winner.transfer(amount); // Transfer the prize money
+
+    // Emit the event with winner details
+    emit WinnerDeclared(winner, amount);
+    // console.log(winner);
+}
+
+
+    function random() public view returns(uint){
+        return uint(keccak256(abi.encode(block.timestamp)));
+    }
+}
